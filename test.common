@@ -1,0 +1,250 @@
+# Copyright (C) 2010, 2011  Miroslav Lichvar <mlichvar@redhat.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+export PATH=$(pwd):$PATH
+
+for i in .. ./clknetsim ../clknetsim; do
+	if [ -f $i/clknetsim.so ]; then
+		CLKNETSIM_PATH=$i
+		break
+	fi
+done
+
+if [ -z "$CLKNETSIM_PATH" ]; then
+	echo "clknetsim not found"
+	exit 2
+fi
+
+. $CLKNETSIM_PATH/clknetsim.bash
+
+test_start() {
+	rm -rf tmp/*
+	echo -n "Testing $@"
+	print_nondefaults
+	echo -n "..."
+}
+
+test_success() {
+	#rm -rf tmp
+	echo "success"
+	exit 0
+}
+
+test_fail() {
+	echo "fail $@"
+	exit 1
+}
+
+timeofflimit=1e-3
+freqofflimit=5e-6
+
+check_sync() {
+	t=$(find_sync tmp/log.offset tmp/log.freq $1 $timeofflimit $freqofflimit)
+	echo -n "$2 <= $t <= $3..."
+	[ -n "$t" ] && [ $t -ge $2 -a $t -le $3 ]
+}
+
+check_stats() {
+	rmsoff=$(grep '^RMS offset' tmp/stats | cut -f 2 | head -n $1 | tail -n 1)
+	rmsfreq=$(grep '^RMS frequency' tmp/stats | cut -f 2 | head -n $1 | tail -n 1)
+	echo -n "($rmsoff < $timeofflimit && $rmsfreq < $freqofflimit)..."
+	awk '{ exit '$rmsoff' < '$timeofflimit' && '$rmsfreq' < '$freqofflimit' ? 0 : 1 } ' < tmp/stats
+}
+
+default_timeoff=1e-1
+default_freqoff=1e-4
+default_jitter=1e-3
+default_wander=1e-9
+default_poll=6
+default_driftfile=yes
+default_shiftpll=2
+default_daemonloop=no
+default_allan=0
+default_step=0.128
+default_broadcastdelay=0
+default_auth=none
+
+timeoff=$default_timeoff
+freqoff=$default_freqoff
+jitter=$default_jitter
+wander=$default_wander
+poll=$default_poll
+driftfile=$default_driftfile
+shiftpll=$default_shiftpll
+daemonloop=$default_daemonloop
+allan=$default_allan
+step=$default_step
+broadcastdelay=$default_broadcastdelay
+auth=$default_auth
+
+print_nondefaults() {
+	[ $timeoff = $default_timeoff ] || echo -n " timeoff=$timeoff"
+	[ $freqoff = $default_freqoff ] || echo -n " freqoff=$freqoff"
+	[ $jitter = $default_jitter ] || echo -n " jitter=$jitter"
+	[ $wander = $default_wander ] || echo -n " wander=$wander"
+	[ $poll = $default_poll ] || echo -n " poll=$poll"
+	[ $driftfile = $default_driftfile ] || echo -n " driftfile=$driftfile"
+	[ $shiftpll = $default_shiftpll ] || echo -n " shiftpll=$shiftpll"
+	[ $daemonloop = $default_daemonloop ] || echo -n " daemonloop=$daemonloop"
+	[ $allan = $default_allan ] || echo -n " allan=$allan"
+	[ $step = $default_step ] || echo -n " step=$step"
+	[ $broadcastdelay = $default_broadcastdelay ] || echo -n " broadcastdelay=$broadcastdelay"
+	[ $auth = $default_auth ] || echo -n " auth=$auth"
+}
+
+print_ntpconf_commands() {
+	case $auth in
+	    none)
+		echo "disable auth";;
+	    symm*)
+		echo "keys tmp/keys"; echo "trustedkey 12";;
+	    *)
+	        if [ "$1" = server ]; then
+		    echo "keysdir tmp/crypto1"
+		    echo "crypto pw password1 host clknetsim-node1"
+		else
+		    echo "keysdir tmp/crypto2"
+		    echo "crypto pw password2 host clknetsim-node2"
+		fi
+		echo "crypto randfile /dev/urandom"
+		;;
+	esac
+
+	[ "$1" = server ] && return
+
+	[ $driftfile = yes ] && echo "driftfile tmp/drift"
+	[ $daemonloop = yes ] && echo "disable kernel"
+	[ $step != $default_step ] && echo "tinker step $step"
+	[ $broadcastdelay != $default_broadcastdelay ] && echo "broadcastdelay $broadcastdelay"
+	[ $allan != 0 ] && echo "tinker allan $allan"
+	#echo "statsdir stats/"
+	#echo "statistics peerstats"
+}
+
+print_key() {
+	case $auth in
+		none) ;;
+		symm*) echo "key 12";;
+		*) echo "autokey";;
+	esac
+}
+
+prepare_client() {
+	echo $freqoff | awk '{ print -$1 * 1e6 }' > tmp/drift
+
+	case $auth in
+	    none) return;;
+	    symmMD5) echo "12 M pass" > tmp/keys;;
+	    symmSHA1) echo "12 SHA1 b471bc4b635ec35630846695b5c5b1436e8d4f8a" > tmp/keys;;
+	    *)
+		mkdir tmp/crypto{1,2}
+		cd tmp/crypto1
+		case $auth in
+		    GQ)
+			ntp-keygen -p password1 -s clknetsim-node1 -i clknetsim-node1 -T -G &> /dev/null
+			ntp-keygen -p password1 -s clknetsim-node1 -e > ../crypto2/ntpkey_gqpar_clknetsim-node1 2> /dev/null
+			cd ../crypto2
+			ntp-keygen -p password2 -s clknetsim-node2 &> /dev/null
+			;;
+		    IFF)
+			ntp-keygen -p password1 -s clknetsim-node1 -i clknetsim-node1 -T -I &> /dev/null
+			ntp-keygen -p password1 -q password2 -s clknetsim-node1 -e > ../crypto2/ntpkey_iff_clknetsim-node1 2> /dev/null
+			cd ../crypto2
+			ntp-keygen -p password2 -s clknetsim-node2 &> /dev/null
+			;;
+		    MV)
+			ntp-keygen -p password1 -s clknetsim-node1 -i clknetsim-node1 -V 5 &> /dev/null
+			#ntp-keygen -p password1 -q password2 -s clknetsim-node1 -e > ../crypto2/ntpkey_mv_clknetsim-node1 2> /dev/null
+			cd ../crypto2
+			#tail -n 100 < ../crypto1/ntpkey_mvta_clknetsim-node1 | head -n 10 > ntpkey_mvta_clknetsim-node1
+			tail -n 6 < ../crypto1/ntpkey_mvta_clknetsim-node1 > ntpkey_mvta_clknetsim-node1
+			ntp-keygen -p password2 -s clknetsim-node2 &> /dev/null
+		    	;;
+		esac
+		cd ../..
+
+		ln -sf ntpkey_host_clknetsim-node1 tmp/crypto1/clknetsim-node1
+		ln -sf ntpkey_host_clknetsim-node2 tmp/crypto2/clknetsim-node2
+
+		export CLKNETSIM_START_DATE=$(date +'%s')
+		;;
+	esac
+}
+
+test_ntpclient() {
+	test_start "NTP client ($2)"
+
+	generate_config1 2 $timeoff "(+ $freqoff (sum (* $wander (normal))))" "(+ $jitter (* $jitter (exponential)))"
+	echo "node2_shift_pll = $shiftpll" >> tmp/conf
+	#echo "node2_start = 2000" >> tmp/conf
+	
+	prepare_client
+
+	start_client 1 ntp "server 127.127.1.0
+$(print_ntpconf_commands server)" "$NTPD1_SUFFIX" "$NTPD1_OPTS"
+	start_client 2 ntp "server 192.168.123.1 minpoll $poll maxpoll $poll $(print_key)
+$(print_ntpconf_commands)" "$NTPD2_SUFFIX" "$NTPD2_OPTS"
+	start_server 2 -o tmp/log.offset -f tmp/log.freq -v 0 -l $1 || test_fail
+}
+
+test_ntpbroadcastclient() {
+	test_start "NTP broadcastclient ($2)"
+
+	generate_config1 2 $timeoff "(+ $freqoff (sum (* $wander (normal))))" "(+ (* 10 $jitter) (* $jitter (exponential)))"
+	echo "node2_shift_pll = $shiftpll" >> tmp/conf
+	
+	prepare_client
+
+	start_client 1 ntp "server 127.127.1.0
+broadcast 192.168.123.255 $(print_key)
+$(print_ntpconf_commands server)" "$NTPD1_SUFFIX" "$NTPD1_OPTS"
+	start_client 2 ntp "broadcastclient
+$(print_ntpconf_commands)" "$NTPD2_SUFFIX" "$NTPD2_OPTS"
+	start_server 2 -o tmp/log.offset -f tmp/log.freq -v 0 -l $1 || test_fail
+}
+
+test_ntppeer() {
+	test_start "NTP peers"
+
+	cat > tmp/conf <<EOF
+node3_shift_pll = $shiftpll
+node3_offset = $timeoff
+node3_freq = (+ $freqoff (sum (* $wander (normal))))
+node4_shift_pll = $shiftpll
+node4_offset = $timeoff
+node4_freq = (+ $freqoff (sum (* $wander (normal))))
+node1_delay3 = (+ $jitter (* $jitter (exponential)))
+node3_delay1 = (* (pulse 150 100) (+ $jitter (* $jitter (exponential))))
+node4_delay2 = (+ $jitter (* $jitter (exponential)))
+node2_delay4 = (* -1 (pulse 100 150) (+ $jitter (* $jitter (exponential))))
+node4_delay3 = (+ $jitter (* $jitter (exponential)))
+node3_delay4 = (+ $jitter (* $jitter (exponential)))
+EOF
+	
+	prepare_client
+
+	start_client 1 ntp "server 127.127.1.0
+$(print_ntpconf_commands server)" "$NTPD1_SUFFIX" "$NTPD1_OPTS"
+	start_client 2 ntp "server 127.127.1.0
+$(print_ntpconf_commands server)" "$NTPD2_SUFFIX" "$NTPD2_OPTS"
+	start_client 3 ntp "server 192.168.123.1 minpoll $poll maxpoll $poll $(print_key)
+peer 192.168.123.4 minpoll $poll maxpoll $poll $(print_key)
+$(print_ntpconf_commands)" "$NTPD1_SUFFIX" "$NTPD1_OPTS"
+	start_client 4 ntp "server 192.168.123.2 minpoll $poll maxpoll $poll $(print_key)
+peer 192.168.123.3 minpoll $poll maxpoll $poll $(print_key)
+$(print_ntpconf_commands)" "$NTPD2_SUFFIX" "$NTPD2_OPTS"
+	start_server 4 -o tmp/log.offset -f tmp/log.freq -v 2 -r $2 -l $1 || test_fail
+}
+
