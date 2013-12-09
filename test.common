@@ -109,7 +109,12 @@ print_ntpconf_commands() {
 	    none)
 		echo "disable auth";;
 	    symm*)
-		echo "keys tmp/keys"; echo "trustedkey 12";;
+	        if [ "$1" = server ]; then
+			echo "keys tmp/keys1";
+		else
+			echo "keys tmp/keys2";
+		fi
+		echo "trustedkey 12";;
 	    *)
 	        if [ "$1" = server ]; then
 		    echo "keysdir tmp/crypto1"
@@ -146,8 +151,14 @@ prepare_client() {
 
 	case $auth in
 	    none) return;;
-	    symmMD5) echo "12 M pass" > tmp/keys;;
-	    symmSHA1) echo "12 SHA1 b471bc4b635ec35630846695b5c5b1436e8d4f8a" > tmp/keys;;
+	    symmMD5)
+		echo "12 M 12345678901234567890" > tmp/keys1
+		echo "12 M 12345678901234567890" > tmp/keys2
+		;;
+	    symmSHA1)
+		echo "12 SHA1 b471bc4b635ec35630846695b5c5b1436e8d4f8a" > tmp/keys1
+		echo "12 SHA1 b471bc4b635ec35630846695b5c5b1436e8d4f8a" > tmp/keys2
+		;;
 	    *)
 		mkdir tmp/crypto{1,2}
 		cd tmp/crypto1
