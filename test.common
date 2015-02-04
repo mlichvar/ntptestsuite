@@ -162,26 +162,27 @@ prepare_client() {
 	    *)
 		mkdir tmp/crypto{1,2}
 		cd tmp/crypto1
+		local enc=RSA-SHA1
 		case $auth in
 		    GQ)
-			ntp-keygen -p password1 -s clknetsim-node1 -i clknetsim-node1 -T -G &> /dev/null
+			ntp-keygen -c $enc -p password1 -s clknetsim-node1 -i clknetsim-node1 -T -G &> /dev/null
 			ntp-keygen -p password1 -s clknetsim-node1 -e > ../crypto2/ntpkey_gqpar_clknetsim-node1 2> /dev/null
 			cd ../crypto2
-			ntp-keygen -p password2 -s clknetsim-node2 &> /dev/null
+			ntp-keygen -c $enc -p password2 -s clknetsim-node2 &> /dev/null
 			;;
 		    IFF)
-			ntp-keygen -p password1 -s clknetsim-node1 -i clknetsim-node1 -T -I &> /dev/null
+			ntp-keygen -c $enc -p password1 -s clknetsim-node1 -i clknetsim-node1 -T -I &> /dev/null
 			ntp-keygen -p password1 -q password2 -s clknetsim-node1 -e > ../crypto2/ntpkey_iff_clknetsim-node1 2> /dev/null
 			cd ../crypto2
-			ntp-keygen -p password2 -s clknetsim-node2 &> /dev/null
+			ntp-keygen -c $enc -p password2 -s clknetsim-node2 &> /dev/null
 			;;
 		    MV)
-			ntp-keygen -p password1 -s clknetsim-node1 -i clknetsim-node1 -V 5 &> /dev/null
+			ntp-keygen -c $enc -p password1 -s clknetsim-node1 -i clknetsim-node1 -V 5 &> /dev/null
 			#ntp-keygen -p password1 -q password2 -s clknetsim-node1 -e > ../crypto2/ntpkey_mv_clknetsim-node1 2> /dev/null
 			cd ../crypto2
 			#tail -n 100 < ../crypto1/ntpkey_mvta_clknetsim-node1 | head -n 10 > ntpkey_mvta_clknetsim-node1
 			tail -n 6 < ../crypto1/ntpkey_mvta_clknetsim-node1 > ntpkey_mvta_clknetsim-node1
-			ntp-keygen -p password2 -s clknetsim-node2 &> /dev/null
+			ntp-keygen -c $enc -p password2 -s clknetsim-node2 &> /dev/null
 		    	;;
 		esac
 		cd ../..
