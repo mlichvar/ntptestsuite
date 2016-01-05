@@ -123,7 +123,7 @@ print_ntpconf_commands() {
 		    echo "keysdir tmp/crypto2"
 		    echo "crypto pw password2 host clknetsim-node2"
 		fi
-		echo "crypto ident group1"
+		[ $auth != "TC" ] && echo "crypto ident group1"
 		echo "crypto randfile /dev/urandom"
 		;;
 	esac
@@ -165,6 +165,11 @@ prepare_client() {
 		cd tmp/crypto1
 		local enc=RSA-SHA1
 		case $auth in
+		    TC)
+			ntp-keygen -c $enc -p password1 -s clknetsim-node1 -T &> /dev/null
+			cd ../crypto2
+			ntp-keygen -c $enc -p password2 -s clknetsim-node2 &> /dev/null
+			;;
 		    GQ)
 			ntp-keygen -c $enc -p password1 -s clknetsim-node1 -i group1 -T -G &> /dev/null
 			ntp-keygen -p password1 -s clknetsim-node1 -e > ../crypto2/ntpkey_gqpar_group1 2> /dev/null
