@@ -123,6 +123,7 @@ print_ntpconf_commands() {
 		    echo "keysdir tmp/crypto2"
 		    echo "crypto pw password2 host clknetsim-node2"
 		fi
+		echo "crypto ident group1"
 		echo "crypto randfile /dev/urandom"
 		;;
 	esac
@@ -165,23 +166,23 @@ prepare_client() {
 		local enc=RSA-SHA1
 		case $auth in
 		    GQ)
-			ntp-keygen -c $enc -p password1 -s clknetsim-node1 -i clknetsim-node1 -T -G &> /dev/null
-			ntp-keygen -p password1 -s clknetsim-node1 -e > ../crypto2/ntpkey_gqpar_clknetsim-node1 2> /dev/null
+			ntp-keygen -c $enc -p password1 -s clknetsim-node1 -i group1 -T -G &> /dev/null
+			ntp-keygen -p password1 -s clknetsim-node1 -e > ../crypto2/ntpkey_gqpar_group1 2> /dev/null
 			cd ../crypto2
 			ntp-keygen -c $enc -p password2 -s clknetsim-node2 &> /dev/null
 			;;
 		    IFF)
-			ntp-keygen -c $enc -p password1 -s clknetsim-node1 -i clknetsim-node1 -T -I &> /dev/null
-			ntp-keygen -p password1 -q password2 -s clknetsim-node1 -e > ../crypto2/ntpkey_iff_clknetsim-node1 2> /dev/null
+			ntp-keygen -c $enc -p password1 -s clknetsim-node1 -i group1 -T -I &> /dev/null
+			ntp-keygen -p password1 -q password2 -s clknetsim-node1 -e > ../crypto2/ntpkey_iffpar_group1 2> /dev/null
 			cd ../crypto2
 			ntp-keygen -c $enc -p password2 -s clknetsim-node2 &> /dev/null
 			;;
 		    MV)
-			ntp-keygen -c $enc -p password1 -s clknetsim-node1 -i clknetsim-node1 -V 5 &> /dev/null
-			#ntp-keygen -p password1 -q password2 -s clknetsim-node1 -e > ../crypto2/ntpkey_mv_clknetsim-node1 2> /dev/null
+			ntp-keygen -c $enc -p password1 -s clknetsim-node1 -i group1 -V 5 &> /dev/null
+			#ntp-keygen -p password1 -q password2 -s clknetsim-node1 -e > ../crypto2/ntpkey_mvpar_group1 2> /dev/null
+			tail -n 100 < ntpkey_mvta_group1 | head -n 10 > ntpkey_mvkey_group1
 			cd ../crypto2
-			#tail -n 100 < ../crypto1/ntpkey_mvta_clknetsim-node1 | head -n 10 > ntpkey_mvta_clknetsim-node1
-			tail -n 6 < ../crypto1/ntpkey_mvta_clknetsim-node1 > ntpkey_mvta_clknetsim-node1
+			tail -n 6 < ../crypto1/ntpkey_mvta_group1 > ntpkey_mvpar_group1
 			ntp-keygen -c $enc -p password2 -s clknetsim-node2 &> /dev/null
 		    	;;
 		esac
