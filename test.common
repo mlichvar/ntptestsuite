@@ -75,6 +75,7 @@ default_allan=0
 default_step=0.128
 default_broadcastdelay=0
 default_auth=none
+default_xleave=no
 
 timeoff=$default_timeoff
 freqoff=$default_freqoff
@@ -88,6 +89,7 @@ allan=$default_allan
 step=$default_step
 broadcastdelay=$default_broadcastdelay
 auth=$default_auth
+xleave=$default_xleave
 
 print_nondefaults() {
 	[ $timeoff = $default_timeoff ] || echo -n " timeoff=$timeoff"
@@ -102,6 +104,7 @@ print_nondefaults() {
 	[ $step = $default_step ] || echo -n " step=$step"
 	[ $broadcastdelay = $default_broadcastdelay ] || echo -n " broadcastdelay=$broadcastdelay"
 	[ $auth = $default_auth ] || echo -n " auth=$auth"
+	[ $xleave = $default_xleave ] || echo -n " xleave=$xleave"
 }
 
 print_ntpconf_commands() {
@@ -145,6 +148,10 @@ print_key() {
 		symm*) echo "key 12";;
 		*) echo "autokey";;
 	esac
+}
+
+print_xleave() {
+	[ $xleave = yes ] && echo xleave
 }
 
 prepare_client() {
@@ -226,7 +233,7 @@ test_ntpbroadcastclient() {
 	prepare_client
 
 	start_client 1 ntp "server 127.127.1.0
-broadcast 192.168.123.255 $(print_key)
+broadcast 192.168.123.255 $(print_key) $(print_xleave)
 $(print_ntpconf_commands server)" "$NTPD1_SUFFIX" "$NTPD1_OPTS"
 	start_client 2 ntp "broadcastclient
 $(print_ntpconf_commands)" "$NTPD2_SUFFIX" "$NTPD2_OPTS"
@@ -258,10 +265,10 @@ $(print_ntpconf_commands server)" "$NTPD1_SUFFIX" "$NTPD1_OPTS"
 	start_client 2 ntp "server 127.127.1.0
 $(print_ntpconf_commands server)" "$NTPD2_SUFFIX" "$NTPD2_OPTS"
 	start_client 3 ntp "server 192.168.123.1 minpoll $poll maxpoll $poll $(print_key)
-peer 192.168.123.4 minpoll $poll maxpoll $poll $(print_key)
+peer 192.168.123.4 minpoll $poll maxpoll $poll $(print_key) $(print_xleave)
 $(print_ntpconf_commands)" "$NTPD1_SUFFIX" "$NTPD1_OPTS"
 	start_client 4 ntp "server 192.168.123.2 minpoll $poll maxpoll $poll $(print_key)
-peer 192.168.123.3 minpoll $poll maxpoll $poll $(print_key)
+peer 192.168.123.3 minpoll $poll maxpoll $poll $(print_key) $(print_xleave)
 $(print_ntpconf_commands)" "$NTPD2_SUFFIX" "$NTPD2_OPTS"
 	start_server 4 -o tmp/log.offset -f tmp/log.freq -v 2 -r $2 -l $1 || test_fail
 }
