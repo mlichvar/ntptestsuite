@@ -221,7 +221,7 @@ test_ntpclient() {
 $(print_ntpconf_commands server)" "$NTPD1_SUFFIX" "$NTPD1_OPTS"
 	start_client 2 ntp "server 192.168.123.1 minpoll $poll maxpoll $poll $(print_key)
 $(print_ntpconf_commands)" "$NTPD2_SUFFIX" "$NTPD2_OPTS"
-	start_server 2 -o tmp/log.offset -f tmp/log.freq -v 0 -l $1 || test_fail
+	start_server 2 -o tmp/log.offset -f tmp/log.freq -p tmp/log.packets -v 0 -l $1 || test_fail
 }
 
 test_ntpbroadcastclient() {
@@ -237,7 +237,7 @@ broadcast 192.168.123.255 $(print_key) $(print_xleave)
 $(print_ntpconf_commands server)" "$NTPD1_SUFFIX" "$NTPD1_OPTS"
 	start_client 2 ntp "broadcastclient
 $(print_ntpconf_commands)" "$NTPD2_SUFFIX" "$NTPD2_OPTS"
-	start_server 2 -o tmp/log.offset -f tmp/log.freq -v 0 -l $1 || test_fail
+	start_server 2 -o tmp/log.offset -f tmp/log.freq -p tmp/log.packets -v 0 -l $1 || test_fail
 }
 
 test_ntppeer() {
@@ -270,6 +270,6 @@ $(print_ntpconf_commands)" "$NTPD1_SUFFIX" "$NTPD1_OPTS"
 	start_client 4 ntp "server 192.168.123.2 minpoll $poll maxpoll $poll $(print_key)
 peer 192.168.123.3 minpoll $poll maxpoll $poll $(print_key) $(print_xleave)
 $(print_ntpconf_commands)" "$NTPD2_SUFFIX" "$NTPD2_OPTS"
-	start_server 4 -o tmp/log.offset -f tmp/log.freq -v 2 -r $2 -l $1 || test_fail
+	start_server 4 -o tmp/log.offset -f tmp/log.freq -p tmp/log.packets -v 2 -r $2 -l $1 || test_fail
 }
 
